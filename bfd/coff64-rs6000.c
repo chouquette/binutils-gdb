@@ -1393,7 +1393,21 @@ reloc_howto_type xcoff64_howto_table[] =
 	 MINUS_ONE,		/* dst_mask */
 	 false),		/* pcrel_offset */
 
-  EMPTY_HOWTO(0x27),
+  /* 0x27: 16 bit local-exec TLS relocation.  */
+  HOWTO (R_TLS_LE,		/* type */
+	 0,			/* rightshift */
+	 2,			/* size */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_signed, /* complain_on_overflow */
+	 0,			/* special_function */
+	 "R_TLS_LE_16",		/* name */
+	 true,			/* partial_inplace */
+	 0xffff,		/* src_mask */
+	 0xffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
+
   EMPTY_HOWTO(0x28),
   EMPTY_HOWTO(0x29),
   EMPTY_HOWTO(0x2a),
@@ -1455,6 +1469,8 @@ xcoff64_rtype2howto (arelent *relent, struct internal_reloc *internal)
 	relent->howto = &xcoff64_howto_table[0x1e];
       else if (R_RBA == internal->r_type)
 	relent->howto = &xcoff64_howto_table[0x1f];
+      else if (R_TLS_LE == internal->r_type)
+	relent->howto = &xcoff64_howto_table[0x27];
     }
   /* Special case 32 bit */
   else if (31 == (internal->r_size & 0x3f))

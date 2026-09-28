@@ -1017,7 +1017,20 @@ reloc_howto_type xcoff_howto_table[] =
 	 0xffff,		/* dst_mask */
 	 false),		/* pcrel_offset */
 
-  EMPTY_HOWTO (0x1f),
+  /* 0x1f: 16 bit local-exec TLS relocation.  */
+  HOWTO (R_TLS_LE,		/* type */
+	 0,			/* rightshift */
+	 2,			/* size */
+	 16,			/* bitsize */
+	 false,			/* pc_relative */
+	 0,			/* bitpos */
+	 complain_overflow_signed, /* complain_on_overflow */
+	 0,			/* special_function */
+	 "R_TLS_LE_16",		/* name */
+	 true,			/* partial_inplace */
+	 0xffff,		/* src_mask */
+	 0xffff,		/* dst_mask */
+	 false),		/* pcrel_offset */
 
   /* 0x20: General-dynamic TLS relocation.  */
   HOWTO (R_TLS,			/* type */
@@ -1174,6 +1187,8 @@ xcoff_rtype2howto (arelent *relent, struct internal_reloc *internal)
 	relent->howto = &xcoff_howto_table[0x1d];
       else if (R_RBA == internal->r_type)
 	relent->howto = &xcoff_howto_table[0x1e];
+      else if (R_TLS_LE == internal->r_type)
+	relent->howto = &xcoff_howto_table[0x1f];
     }
 
   /* The r_size field of an XCOFF reloc encodes the bitsize of the
@@ -3865,6 +3880,7 @@ _bfd_xcoff_relocate_section (bfd *output_bfd,
 	    {
 	    case R_POS:
 	    case R_NEG:
+	    case R_TLS_LE:
 	      howto.bitsize = (rel->r_size & (xcoff64 ? 0x3f : 0x1f)) + 1;
 	      howto.size = HOWTO_RSIZE (howto.bitsize <= 16 ? 2
 					: !xcoff64 || howto.bitsize <= 32 ? 4
@@ -3885,6 +3901,9 @@ _bfd_xcoff_relocate_section (bfd *output_bfd,
       howto.complain_on_overflow = (rel->r_size & 0x80
 				    ? complain_overflow_signed
 				    : complain_overflow_bitfield);
+      /* The rewritten addi is signed; check overflow as signed.  */
+      if (rel->r_type == R_TLS_LE && howto.bitsize == 16)
+	howto.complain_on_overflow = complain_overflow_signed;
 
       /* symbol */
       val = 0;
