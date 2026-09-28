@@ -53,7 +53,7 @@ SECTIONS
     *(.tl)
   }
 
-  .tbss : {
+  .tbss -0x7800 + SIZEOF(.tdata) : {
     *(.tbss)
     *(.ul)
   }
