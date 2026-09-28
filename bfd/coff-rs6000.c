@@ -2874,7 +2874,42 @@ _bfd_xcoff_bfd_free_cached_info (bfd *abfd)
 {
   /* xcoff bfd_core does not have a coff_tdata.  */
   if (bfd_get_format (abfd) == bfd_object)
-    return _bfd_coff_free_cached_info (abfd);
+    {
+      struct coff_tdata *tdata;
+
+      /* Same cleanup _bfd_coff_free_cached_info does, but without the
+	 fall-through to _bfd_generic_bfd_free_cached_info -- same reason
+	 as bfd/mach-o.c and bfd/som.c already skip it.  */
+      if (bfd_family_coff (abfd) && (tdata = coff_data (abfd)) != NULL)
+	{
+	  if (tdata->section_by_index)
+	    {
+	      htab_delete (tdata->section_by_index);
+	      tdata->section_by_index = NULL;
+	    }
+
+	  if (tdata->section_by_target_index)
+	    {
+	      htab_delete (tdata->section_by_target_index);
+	      tdata->section_by_target_index = NULL;
+	    }
+
+	  _bfd_dwarf2_cleanup_debug_info (abfd, &tdata->dwarf2_find_line_info);
+	  _bfd_stab_cleanup (abfd, &tdata->line_info);
+
+	  _bfd_coff_free_symbols (abfd);
+
+	  if (!obj_coff_keep_raw_syms (abfd) && obj_raw_syments (abfd))
+	    {
+	      bfd_release (abfd, obj_raw_syments (abfd));
+	      obj_raw_syments (abfd) = NULL;
+	      obj_symbols (abfd) = NULL;
+	      obj_convert (abfd) = NULL;
+	    }
+	}
+
+      return true;
+    }
 
   return _bfd_generic_bfd_free_cached_info (abfd);
 }
