@@ -3163,6 +3163,15 @@ xcoff_reloc_type_toc (bfd *input_bfd,
 
   if (h != NULL && h->smclas != XMC_TD)
     {
+      if (h->toc_section == NULL
+	  && h->smclas == XMC_TC
+	  && (h->root.type == bfd_link_hash_defined
+	      || h->root.type == bfd_link_hash_defweak))
+	{
+	  /* This standalone XMC_TC csect is its own TOC entry section.  */
+	  h->toc_section = h->root.u.def.section;
+	}
+
       if (h->toc_section == NULL)
 	{
 	  _bfd_error_handler
@@ -3175,6 +3184,11 @@ xcoff_reloc_type_toc (bfd *input_bfd,
       BFD_ASSERT ((h->flags & XCOFF_SET_TOC) == 0);
       val = (h->toc_section->output_section->vma
 	      + h->toc_section->output_offset);
+      /* Here h->toc_section is h's own defining section, not a
+	 dedicated TOC-entry csect, so its offset within it also
+	 needs adding.  */
+      if (h->smclas == XMC_TC && h->toc_section == h->root.u.def.section)
+	val += h->root.u.def.value;
     }
 
   /* We can't use the preexisting value written down by the
