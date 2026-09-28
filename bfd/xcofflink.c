@@ -2932,11 +2932,26 @@ xcoff_need_ldrel_p (struct bfd_link_info *info, struct internal_reloc *rel,
       return true;
 
     case R_TLS:
-    case R_TLS_LE:
     case R_TLS_IE:
     case R_TLS_LD:
     case R_TLSM:
     case R_TLSML:
+      return true;
+
+    case R_TLS_LE:
+      if (h == NULL
+	  || h->root.type == bfd_link_hash_defined
+	  || h->root.type == bfd_link_hash_defweak
+	  || h->root.type == bfd_link_hash_common)
+	return false;
+
+      /* Absolute relocations from read-only sections are forbidden
+	 by AIX loader, same as R_POS/R_NEG/R_RL/R_RLA above; the
+	 local-exec addi this relocates lives in .text.  */
+      if (ssec != NULL
+	  && (ssec->output_section->flags & SEC_READONLY) != 0)
+	return false;
+
       return true;
     }
 }
