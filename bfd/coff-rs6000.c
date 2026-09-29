@@ -3157,22 +3157,49 @@ xcoff_reloc_type_toc (bfd *input_bfd,
 }
 
 bfd_reloc_status_type
-xcoff_reloc_type_ba (bfd *input_bfd ATTRIBUTE_UNUSED,
-		     asection *input_section ATTRIBUTE_UNUSED,
+xcoff_reloc_type_ba (bfd *input_bfd,
+		     asection *input_section,
 		     bfd *output_bfd ATTRIBUTE_UNUSED,
-		     struct internal_reloc *rel ATTRIBUTE_UNUSED,
+		     struct internal_reloc *rel,
 		     struct internal_syment *sym ATTRIBUTE_UNUSED,
 		     struct reloc_howto_struct *howto,
 		     bfd_vma val,
 		     bfd_vma addend,
 		     bfd_vma *relocation,
-		     bfd_byte *contents ATTRIBUTE_UNUSED,
-		     struct bfd_link_info *info ATTRIBUTE_UNUSED)
+		     bfd_byte *contents,
+		     struct bfd_link_info *info)
 {
   howto->src_mask &= ~3;
   howto->dst_mask = howto->src_mask;
 
   *relocation = val + addend;
+
+  /* XCOFF64 absolute branches can't reach text at 0x100000000+;
+     rewrite to relative form when in range. Skip during -r (addresses
+     aren't final yet), and restrict to R_BA/R_RBA (this function also
+     dispatches R_CAI/R_RBAC/R_RBRC, not 4-byte AA-bit branch words).  */
+  if ((rel->r_type == R_BA || rel->r_type == R_RBA)
+      && bfd_xcoff_is_xcoff64 (input_bfd) && !bfd_link_relocatable (info))
+    {
+      bfd_vma target = val + addend;
+      bfd_vma location = (input_section->output_section->vma
+			  + input_section->output_offset
+			  + rel->r_vaddr - input_section->vma);
+      bfd_signed_vma rel_off = (bfd_signed_vma) (target - location);
+
+      if (target + 0x2000000 >= 0x4000000
+	  && rel_off >= -(bfd_signed_vma) 0x2000000
+	  && rel_off < (bfd_signed_vma) 0x2000000)
+	{
+	  bfd_vma off = rel->r_vaddr - input_section->vma;
+	  bfd_vma insn = bfd_get_32 (input_bfd, contents + off);
+
+	  insn &= ~2;	/* clear AA: absolute -> relative */
+	  bfd_put_32 (input_bfd, insn, contents + off);
+	  *relocation = (bfd_vma) rel_off;
+	  howto->pc_relative = true;
+	}
+    }
 
   return bfd_reloc_ok;
 }
