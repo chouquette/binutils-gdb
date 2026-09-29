@@ -267,6 +267,11 @@ set aix52tests {
 	{{objdump -dr aix-neg-reloc-SIZE.d}}
 	"aix-neg-reloc.so"}
 
+    {"bnoobjreorder test 1" "-shared -bnogc"
+	"" {aix-bnoobjreorder-1.s}
+	{}
+	"aix-bnoobjreorder-1.so"}
+
 }
 
 foreach test $aix52tests {
