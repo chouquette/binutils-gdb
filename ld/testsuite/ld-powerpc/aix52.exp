@@ -273,6 +273,12 @@ run_dump_test "aix-glink-3-64"
 run_dump_test "aix-weak-3-32"
 run_dump_test "aix-weak-3-64"
 
+# 64-bit only: XCOFF32 absolute branches don't overflow at this address range.
+run_aix_test 64 "Absolute branch overflow test (R_RBA rewrite)" \
+    "-shared -bnogc" "" {aix-rba-overflow-1.s} \
+    {{objdump -dr aix-rba-overflow-1.dd}} \
+    "aix-rba-overflow-1.so"
+
 
 # Tests added for features in AIX 7+.
 

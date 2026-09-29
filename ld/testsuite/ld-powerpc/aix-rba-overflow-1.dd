@@ -1,0 +1,12 @@
+
+.*
+
+
+Disassembly of section \.text:
+
+.*<foo>:
+.*	b * [0-9a-f]+ <foo\+0x8>
+.*R_BA_26.*foo.*
+.*	(oril * r0,r0,0|nop)
+.*	(oril * r0,r0,0|nop)
+#pass
