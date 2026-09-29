@@ -27,6 +27,8 @@ struct bfd_xcoff_link_params
   /* Linker call-backs.  */
   asection * (*add_stub_section) (const char *, asection *);
   void (*layout_sections_again) (void);
+
+  bool bigtoc;
 };
 
 extern bool bfd_xcoff_split_import_path

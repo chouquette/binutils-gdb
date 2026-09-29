@@ -70,7 +70,8 @@ static void xcoff_layout_sections_again (void);
 static struct bfd_xcoff_link_params params = {
   NULL,
   &xcoff_add_stub_section,
-  &xcoff_layout_sections_again
+  &xcoff_layout_sections_again,
+  false
 };
 
 
@@ -201,7 +202,7 @@ gld${EMULATION_NAME}_add_options
     {"bexpall", no_argument, NULL, OPTION_EXPALL},
     {"bexpfull", no_argument, NULL, OPTION_EXPFULL},
     {"bexport", required_argument, NULL, OPTION_EXPORT},
-    {"bbigtoc", no_argument, NULL, OPTION_IGNORE},
+    {"bbigtoc", no_argument, NULL, OPTION_BIGTOC},
     {"bf", no_argument, NULL, OPTION_ERNOTOK},
     {"bgc", no_argument, &gc, 1},
     {"bh", required_argument, NULL, OPTION_IGNORE},
@@ -455,6 +456,10 @@ gld${EMULATION_NAME}_handle_option (int optc)
 
     case OPTION_AUTOIMP:
       link_info.static_link = false;
+      break;
+
+    case OPTION_BIGTOC:
+      params.bigtoc = true;
       break;
 
     case OPTION_ERNOTOK:
