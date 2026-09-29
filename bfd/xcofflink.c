@@ -6237,6 +6237,15 @@ xcoff_toc_section_p (asection *sec)
   return false;
 }
 
+/* Return true if SEC is the ".tc0" TOC-anchor marker csect rather
+   than an ordinary TOC-data csect.  */
+
+static inline bool
+xcoff_toc0_section_p (asection *sec)
+{
+  return strcmp (sec->name, ".tc0") == 0;
+}
+
 /* See if the link requires a TOC (it usually does!).  If so, find a
    good place to put the TOC anchor csect, and write out the associated
    symbol.  */
@@ -6244,14 +6253,19 @@ xcoff_toc_section_p (asection *sec)
 static bool
 xcoff_find_tc0 (bfd *output_bfd, struct xcoff_final_link_info *flinfo)
 {
-  bfd_vma toc_start, toc_end, start, end, best_address;
+  bfd_vma toc_start, toc_end, start, end, best_address, window;
+  bfd_vma narrow_start, narrow_end;
+  bool bigtoc, have_narrow;
   asection *sec;
   bfd *input_bfd;
   int section_index;
+  struct xcoff_link_hash_entry *h;
   struct internal_syment irsym;
   union internal_auxent iraux;
   file_ptr pos;
   size_t size;
+
+  bigtoc = xcoff_hash_table (flinfo->info)->params->bigtoc;
 
   /* Set [TOC_START, TOC_END) to the range of the TOC.  Record the
      index of a csect at the beginning of the TOC.  */
@@ -6283,13 +6297,101 @@ xcoff_find_tc0 (bfd *output_bfd, struct xcoff_final_link_info *flinfo)
       return true;
     }
 
-  if (toc_end - toc_start < 0x8000)
-    /* Every TOC csect can be accessed from TOC_START.  */
-    best_address = toc_start;
+  /* Only the narrow R_TOC form is limited to a 64KB window;
+     -bbigtoc narrows the requirement to just the csects that use it.  */
+  narrow_start = toc_start;
+  narrow_end = toc_end;
+
+  if (bigtoc && toc_end - toc_start >= 0x8000)
+    {
+      /* Recompute [narrow_start, narrow_end) over exactly the csects
+	 an R_TOC relocation actually targets (per-csect granularity),
+	 so a wide-only csect isn't dragged in just because it shares
+	 a bfd with an unrelated narrow reference.  */
+      have_narrow = false;
+      narrow_start = ~(bfd_vma) 0;
+      narrow_end = 0;
+
+      for (input_bfd = flinfo->info->input_bfds;
+	   input_bfd != NULL;
+	   input_bfd = input_bfd->link.next)
+	for (sec = input_bfd->sections; sec != NULL; sec = sec->next)
+	  {
+	    struct internal_reloc *relocs, *rel, *relend;
+
+	    if (sec->reloc_count == 0)
+	      continue;
+	    relocs = xcoff_read_internal_relocs (input_bfd, sec, true, NULL,
+						  false, NULL);
+	    if (relocs == NULL)
+	      continue;
+	    relend = relocs + sec->reloc_count;
+	    for (rel = relocs; rel < relend; rel++)
+	      {
+		asection *tsec;
+
+		if (rel->r_type != R_TOC
+		    || ((unsigned long) rel->r_symndx
+			>= obj_raw_syment_count (input_bfd)))
+		  continue;
+
+		h = obj_xcoff_sym_hashes (input_bfd)[rel->r_symndx];
+		if (h != NULL)
+		  {
+		    tsec = h->toc_section;
+		    if (tsec == NULL
+			&& h->smclas == XMC_TC
+			&& (h->root.type == bfd_link_hash_defined
+			    || h->root.type == bfd_link_hash_defweak))
+		      /* Standalone self-registered XMC_TC csect (see
+			 xcoff_reloc_type_toc): its lazy registration into
+			 h->toc_section hasn't run yet at this point in the
+			 link (this scan happens before the relocation
+			 pass), so fall back to its own defining section
+			 directly, same as that later registration would.  */
+		      tsec = h->root.u.def.section;
+		  }
+		else
+		  tsec = xcoff_data (input_bfd)->csects[rel->r_symndx];
+
+		if (tsec == NULL
+		    || tsec->gc_mark == 0
+		    || !xcoff_toc_section_p (tsec)
+		    || xcoff_toc0_section_p (tsec))
+		  continue;
+
+		have_narrow = true;
+		start = tsec->output_section->vma + tsec->output_offset;
+		end = start + tsec->size;
+		if (narrow_start > start)
+		  narrow_start = start;
+		if (narrow_end < end)
+		  narrow_end = end;
+	      }
+	  }
+
+      if (!have_narrow)
+	{
+	  /* No R_TOC references anywhere: every access is the wide form,
+	     so any anchor works. Collapse to the trivial case below.  */
+	  narrow_start = toc_start;
+	  narrow_end = toc_start;
+	}
+    }
+
+  window = 0x8000;
+
+  if (narrow_end - narrow_start < window)
+    /* Every narrow-required TOC csect can be accessed from NARROW_START.  */
+    best_address = narrow_start;
   else
     {
-      /* Find the lowest TOC csect that is still within range of TOC_END.  */
-      best_address = toc_end;
+      /* Find the lowest TOC csect that is still within range of
+	 NARROW_END. The candidate pool is every TOC csect (as without
+	 -bbigtoc), but the range requirement is against the narrow
+	 bound, so a far wide-only csect can still be chosen as long as
+	 it also covers the near, narrow-required ones.  */
+      best_address = narrow_end;
       for (input_bfd = flinfo->info->input_bfds;
 	   input_bfd != NULL;
 	   input_bfd = input_bfd->link.next)
@@ -6298,20 +6400,22 @@ xcoff_find_tc0 (bfd *output_bfd, struct xcoff_final_link_info *flinfo)
 	    {
 	      start = sec->output_section->vma + sec->output_offset;
 	      if (start < best_address
-		  && start + 0x8000 >= toc_end)
+		  && start + window >= narrow_end)
 		{
 		  best_address = start;
 		  section_index = sec->output_section->target_index;
 		}
 	    }
 
-      /* Make sure that the start of the TOC is also within range.  */
-      if (best_address > toc_start + 0x8000)
+      /* Make sure that the start of the narrow-required range is also
+	 within range.  */
+      if (best_address > narrow_start + window)
 	{
 	  _bfd_error_handler
 	    (_("TOC overflow: %#" PRIx64 " > 0x10000; try -mminimal-toc "
-	       "when compiling"),
-	     (uint64_t) (toc_end - toc_start));
+	       "when compiling%s"),
+	     (uint64_t) (narrow_end - narrow_start),
+	     bigtoc ? "" : _(", or -bbigtoc if you are not already using it"));
 	  bfd_set_error (bfd_error_file_too_big);
 	  return false;
 	}

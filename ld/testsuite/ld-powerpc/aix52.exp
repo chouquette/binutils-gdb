@@ -294,6 +294,12 @@ run_aix_test 64 "Absolute branch overflow test (R_RBA rewrite)" \
     {{objdump -dr aix-rba-overflow-1.dd}} \
     "aix-rba-overflow-1.so"
 
+# 64-bit only: the padding here is sized to overflow the 64-bit (8-byte-entry)
+# 64KB TOC window; at 32-bit (4-byte entries) it stays under the limit either way.
+run_aix_test 64 "TOC test 2 (-bbigtoc narrows to the narrow-form-only requirement)" \
+    "-shared -bnogc -bbigtoc" "" {aix-bbigtoc-1-main.s aix-bbigtoc-1-pad1.s aix-bbigtoc-1-pad2.s aix-bbigtoc-1-pad3.s aix-bbigtoc-1-pad4.s aix-bbigtoc-1-pad5.s} \
+    {} "aix-bbigtoc-1.so"
+
 
 # Tests added for features in AIX 7+.
 

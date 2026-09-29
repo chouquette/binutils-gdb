@@ -225,6 +225,7 @@ enum option_values
   OPTION_NO_APPLY_DYNAMIC_RELOCS,
   /* Used by emultempl/aix.em.  */
   OPTION_AUTOIMP,
+  OPTION_BIGTOC,
   OPTION_ERNOTOK,
   OPTION_EROK,
   OPTION_EXPALL,
