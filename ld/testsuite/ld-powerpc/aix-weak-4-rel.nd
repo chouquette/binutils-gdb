@@ -1,0 +1,5 @@
+# Two different-named weak commons, one of them (weak_common_1) defined
+# in two input files, must each get their own distinct storage rather
+# than aliasing onto the same address.
+0+ W weak_common_1
+0+8 W weak_common_2
