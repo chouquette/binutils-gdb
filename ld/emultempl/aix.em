@@ -220,6 +220,7 @@ gld${EMULATION_NAME}_add_options
     {"bnoexpfull", no_argument, NULL, OPTION_NOEXPFULL},
     {"bnodelcsect", no_argument, NULL, OPTION_IGNORE},
     {"bnoentry", no_argument, NULL, OPTION_IGNORE},
+    {"bnoobjreorder", no_argument, NULL, OPTION_IGNORE},
     {"bnogc", no_argument, &gc, 0},
     {"bnso", no_argument, NULL, OPTION_NOAUTOIMP},
     {"bnostrcmpct", no_argument, NULL, OPTION_NOSTRCMPCT},
@@ -249,7 +250,7 @@ gld${EMULATION_NAME}_add_options
      -bcror15, -bdebugopt, -bdbg, -bdelcsect, -bex?, -bfilelist, -bfl,
      -bgcbypass, -bglink, -binsert, -bi, -bloadmap, -bl, -bmap, -bnl,
      -bnobind, -bnocomprld, -bnocrld, -bnoerrmsg, -bnoglink,
-     -bnoloadmap, -bnl, -bnoobjreorder, -bnoquiet, -bnoreorder,
+     -bnoloadmap, -bnl, -bnoquiet, -bnoreorder,
      -bnotypchk, -bnox, -bquiet, -bR, -brename, -breorder, -btypchk,
      -bx, -bX, -bxref.  */
 
