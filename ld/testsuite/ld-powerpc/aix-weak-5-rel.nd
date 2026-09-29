@@ -1,0 +1,7 @@
+# Two same-named weak commons of different sizes (4 and 16 bytes, smaller
+# one first) must resolve to the larger size, matching real common-merge
+# semantics, rather than whichever occurrence the linker happened to see
+# first. weak_common_3_anchor lands right after, so its address reflects
+# how much storage weak_common_3 actually reserved.
+0+ W weak_common_3
+0+10 B weak_common_3_anchor

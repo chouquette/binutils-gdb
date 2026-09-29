@@ -2183,6 +2183,31 @@ xcoff_link_add_symbols (bfd *abfd, struct bfd_link_info *info)
 
 	    }
 
+	  /* Snapshot the existing entry's size/alignment: the NOACT/COM
+	     actions below don't compare sizes, so it may otherwise be
+	     discarded even when larger.  */
+	  bfd_vma prev_com_size = 0;
+	  unsigned int prev_com_align = 0;
+	  bool have_prev_com = false;
+
+	  if (smtyp == XTY_CM)
+	    {
+	      if ((*sym_hash)->root.type == bfd_link_hash_common)
+		{
+		  prev_com_size = (*sym_hash)->root.u.c.size;
+		  prev_com_align = (*sym_hash)->root.u.c.p->alignment_power;
+		  have_prev_com = true;
+		}
+	      else if ((*sym_hash)->root.type == bfd_link_hash_defweak
+		       && bfd_is_com_section ((*sym_hash)->root.u.def.section))
+		{
+		  prev_com_size = (*sym_hash)->root.u.def.value;
+		  prev_com_align
+		    = (*sym_hash)->root.u.def.section->alignment_power;
+		  have_prev_com = true;
+		}
+	    }
+
 	  /* _bfd_generic_link_add_one_symbol may call the linker to
 	     generate an error message, and the linker may try to read
 	     the symbol table to give a good error.  Right now, the
@@ -2212,6 +2237,30 @@ xcoff_link_add_symbols (bfd *abfd, struct bfd_link_info *info)
 	      else
 		(*sym_hash)->root.u.c.p->alignment_power
 		  = csect->alignment_power;
+
+	      /* NOACT/COM don't compare sizes; enforce the max explicitly,
+		 regardless of which action fired.  */
+	      if (have_prev_com)
+		{
+		  bfd_vma final_size
+		    = prev_com_size > value ? prev_com_size : value;
+		  unsigned int final_align
+		    = (prev_com_align > csect->alignment_power
+		       ? prev_com_align : csect->alignment_power);
+
+		  if ((*sym_hash)->root.type == bfd_link_hash_common)
+		    {
+		      (*sym_hash)->root.u.c.size = final_size;
+		      (*sym_hash)->root.u.c.p->alignment_power = final_align;
+		    }
+		  else if ((*sym_hash)->root.type == bfd_link_hash_defweak
+			   && bfd_is_com_section ((*sym_hash)->root.u.def.section))
+		    {
+		      (*sym_hash)->root.u.def.value = final_size;
+		      (*sym_hash)->root.u.def.section->alignment_power
+			= final_align;
+		    }
+		}
 	    }
 
 	  if (info->output_bfd->xvec == abfd->xvec)
@@ -3638,6 +3687,16 @@ xcoff_post_gc_symbol (struct xcoff_link_hash_entry *h, void * p)
     {
       BFD_ASSERT (bfd_is_com_section (h->root.u.c.p->section));
       h->root.u.c.p->section->size = h->root.u.c.size;
+    }
+  /* A weak common misrouted as a weak definition stashed its real
+     size in u.def.value; restore it if nothing else claimed the
+     symbol.  */
+  else if (h->root.type == bfd_link_hash_defweak
+	   && bfd_is_com_section (h->root.u.def.section)
+	   && h->root.u.def.section->size == 0)
+    {
+      h->root.u.def.section->size = h->root.u.def.value;
+      h->root.u.def.value = 0;
     }
 
   if (xcoff_hash_table (ldinfo->info)->loader_section)

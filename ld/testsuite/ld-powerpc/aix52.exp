@@ -247,6 +247,16 @@ set aix52tests {
      {{objdump -Dzrj.data aix-weak-3-SIZE.dd}}
      "aix-weak-3"}
 
+    {"Weak test 4 (distinct weak commons) (rel)" "-r"
+     "" {aix-weak-4a.s aix-weak-4b.s aix-weak-4c.s}
+     {{nm {} aix-weak-4-rel.nd}}
+     "aix-weak-4.o"}
+
+    {"Weak test 5 (weak commons of different sizes) (rel)" "-r"
+     "" {aix-weak-5a.s aix-weak-5b.s aix-weak-5c.s}
+     {{nm {} aix-weak-5-rel.nd}}
+     "aix-weak-5.o"}
+
     {"TOC test 1" "-shared -bE:aix-toc-1.ex"
      "" {aix-toc-1a.s aix-toc-1b.s}
      {{objdump -dr aix-toc-1-SIZE.dd}}
