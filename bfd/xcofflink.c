@@ -640,6 +640,7 @@ xcoff_link_hash_newfunc (struct bfd_hash_entry *entry,
       ret->ldsym = NULL;
       ret->ldindx = -1;
       ret->flags = 0;
+      ret->visibility = 0;
       ret->smclas = XMC_UA;
     }
 
